@@ -16,7 +16,7 @@ SAMPLE_RATE = 16000
 IMG_SIZE = (128, 128)
 DURATION = 5 
 
-# --- 1. MODELİ YÜKLEME (Cache ile hızlandırılmış) ---
+# --- 1. MODELİ YÜKLEME ---
 @st.cache_resource
 def load_model():
     if not os.path.exists(MODEL_PATH):
@@ -27,13 +27,11 @@ def load_model():
 
 model = load_model()
 
-# --- 2. ÖNİŞLEME FONKSİYONU (Eğitimdekiyle AYNI) ---
+# --- 2. ÖNİŞLEME FONKSİYONU ---
 def preprocess_audio(audio, sr):
-    # Eğer örnekleme hızı farklıysa 16000'e çevir
     if sr != SAMPLE_RATE:
         audio = librosa.resample(audio, orig_sr=sr, target_sr=SAMPLE_RATE)
     
-    # 5 Saniyeye Sabitle (Padding veya Kesme)
     max_len = SAMPLE_RATE * DURATION
     if len(audio) > max_len:
         audio = audio[:max_len]
@@ -52,13 +50,12 @@ def preprocess_audio(audio, sr):
     # Resize (128x128) ve Boyut Ekleme
     spectrogram = tf.expand_dims(spectrogram, axis=-1)
     spectrogram = tf.image.resize(spectrogram, IMG_SIZE)
-    spectrogram = tf.expand_dims(spectrogram, axis=0) # Batch boyutu (1, 128, 128, 1)
+    spectrogram = tf.expand_dims(spectrogram, axis=0) 
     
     return spectrogram
 
 # --- 3. TAHMİN FONKSİYONU ---
 def predict_segment(audio_chunk):
-    # Sessizlik Kontrolü (Max Genlik Eşiği - Simülasyondaki aynı ayarlar)
     max_amp = np.max(np.abs(audio_chunk))
     if max_amp < 0.02:
         return "SESSİZLİK", 0.0, max_amp
@@ -74,7 +71,6 @@ def predict_segment(audio_chunk):
 st.title("Gerçek Zamanlı Cinsiyet Tespiti")
 st.markdown("Bu uygulama **TIMIT Veri Seti** ile eğitilmiş CNN modelini kullanır.")
 
-# Sekmeler
 tab1, tab2 = st.tabs(["🔴 Senaryo 1: Canlı Mikrofon", "📂 Senaryo 2: Dosya Analizi"])
 
 # --- SENARYO 1: CANLI MİKROFON ---
@@ -82,7 +78,6 @@ with tab1:
     st.header("Mikrofon ile Canlı Analiz")
     st.write("Sistem kesintisiz (streaming) modda çalışır.")
     
-    # Başlat/Durdur Butonu
     if st.button("🔴 Yayını Başlat / Durdur", key="stream_btn"):
         if 'streaming' not in st.session_state:
             st.session_state.streaming = True
@@ -98,7 +93,6 @@ with tab1:
         if 'audio_buffer' not in st.session_state:
             st.session_state.audio_buffer = np.zeros(full_buffer_len, dtype=np.float32)
 
-        # Blok Ayarları (0.5 sn)
         block_duration = 0.5 
         block_size = int(SAMPLE_RATE * block_duration)
         
@@ -122,14 +116,12 @@ with tab1:
                     current_audio = st.session_state.audio_buffer
                     
                     # --- DÜZELTME 1: ANLIK SESSİZLİK KONTROLÜ ---
-                    # Yeni gelen 0.5 saniyeye bakıyoruz , böylece sustuğun an sistem de susar.
                     instant_amp = np.max(np.abs(new_data))
                     
                     with placeholder.container():
                         col1, col2 = st.columns([3, 1])
                         
                         with col1:
-                            # Eşik Değeri 0.02 olarak belirlendi.
                             if instant_amp < 0.02: 
                                 st.warning("### 😶 SESSİZLİK")
                                 st.progress(0, text="Sinyal Bekleniyor...")
@@ -138,19 +130,16 @@ with tab1:
                                 prob_val = float(prob)
                                 prob_val = max(0.0, min(1.0, prob_val))
                                 
-                                # --- DÜZELTME 2: GÜVEN EŞİĞİ (GÜRÜLTÜ FİLTRESİ) ---
-                                # Model %40 ile %60 arasında kaldıysa "Emin değilim" desin.
                                 if 0.40 < prob_val < 0.60:
                                     st.warning("### ⚠️ BELİRSİZ SES / GÜRÜLTÜ")
                                     st.progress(0.5, text="Model Kararsız (%50)")
                                 
-                                elif prob_val <= 0.40: # Kesin Kadın
-                                    # Güven skorunu 0-1 arasına yaymak için ters işlem
+                                elif prob_val <= 0.40: 
                                     confidence = (1.0 - prob_val)
                                     st.success(f"### 👩 KADIN (Güven: %{confidence*100:.1f})")
                                     st.progress(confidence, text="Kadın Sesi Olasılığı")
                                     
-                                else: # Kesin Erkek (prob_val >= 0.60)
+                                else: 
                                     st.info(f"### 👨 ERKEK (Güven: %{prob_val*100:.1f})")
                                     st.progress(prob_val, text="Erkek Sesi Olasılığı")
                         
@@ -178,7 +167,6 @@ with tab2:
             y, sr = librosa.load(uploaded_file, sr=SAMPLE_RATE)
             
             # --- 3. Geliştirme: EVRENSEL OYNATICI ---
-            # Tarayıcının kafası karışmasın diye, elimizdeki temiz array'i sanal bir WAV dosyasına yazıp oynatıcıya veriyoruz.
             virtual_wav = io.BytesIO()
             sf.write(virtual_wav, y, SAMPLE_RATE, format='WAV', subtype='PCM_16')
             
@@ -188,8 +176,6 @@ with tab2:
             # --- 4. ANALİZ BUTONU ---
             if st.button("Dosyayı Analiz Et"):
                 with st.spinner('Ses işleniyor...'):
-                    # 'y' değişkeni zaten yukarıda yüklendiği için tekrar yüklemeye gerek yok!
-                    # Direkt 'y' üzerinden analize devam ediyoruz.
                     
                     duration_sec = len(y) / SAMPLE_RATE
                     results = []
