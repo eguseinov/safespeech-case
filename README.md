@@ -404,11 +404,13 @@ ReduceLROnPlateau(
 
 Epoch bazlı eğitim/test doğruluk ve kayıp eğrileri:
 
-Görsel: ![Yeni Model Başarısı ve Kayıp (GAP + LR Scheduler)](assets/trainval.png)
+![Yeni Model Başarısı ve Kayıp (GAP + LR Scheduler)](assets/trainval.png)
 
 ### Confusion Matrix Analizi
 
-Görsel: ![Confusion Matrix](assets/confusionmatrix.png)
+![Confusion Matrix](assets/confusion_matrix.png)
+
+TEST SETİ FİNAL DOĞRULUĞU: %98.75
 
 ## 11. Gerçek Zamanlı Tahmin Simülasyonu (notebook içerisinde)
 
